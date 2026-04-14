@@ -1,0 +1,208 @@
+-- Delta Admin Panel (RUS)
+local player = game.Players.LocalPlayer
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local isAdmin = true
+local speed = 16
+local oldSpeed = 16
+local fly = false
+local noclip = false
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DeltaAdmin"
+screenGui.Parent = player.PlayerGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 400, 0, 500)
+mainFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+mainFrame.BorderSizePixel = 2
+mainFrame.BorderColor3 = Color3.fromRGB(255, 80, 80)
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+title.Text = "Delta Admin Panel"
+title.TextColor3 = Color3.new(1,1,1)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.Parent = mainFrame
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 25, 0, 25)
+closeBtn.Position = UDim2.new(1, -30, 0, 2)
+closeBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.Parent = mainFrame
+closeBtn.MouseButton1Click:Connect(function() screenGui.Enabled = false end)
+
+-- Функции
+local function getTargets(targetAll, targetName)
+    local targets = {}
+    if targetAll then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player then table.insert(targets, plr) end
+        end
+    else
+        local plr = Players:FindFirstChild(targetName)
+        if plr and plr ~= player then table.insert(targets, plr) end
+    end
+    return targets
+end
+
+-- GUI элементы
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size = UDim2.new(1, -10, 1, -40)
+scroll.Position = UDim2.new(0, 5, 0, 35)
+scroll.BackgroundTransparency = 1
+scroll.BorderSizePixel = 0
+scroll.ScrollBarThickness = 8
+scroll.Parent = mainFrame
+
+local yOff = 10
+local function createButton(text, y, color, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 360, 0, 30)
+    btn.Position = UDim2.new(0, 15, 0, y)
+    btn.BackgroundColor3 = color or Color3.fromRGB(50, 50, 70)
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Parent = scroll
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+local function createInput(y, placeholder)
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0, 360, 0, 25)
+    box.Position = UDim2.new(0, 15, 0, y)
+    box.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    box.PlaceholderText = placeholder
+    box.TextColor3 = Color3.new(1,1,1)
+    box.Parent = scroll
+    return box
+end
+
+-- Игроки
+local inputPlayer = createInput(yOff, "Имя игрока")
+local targetAll = false
+local allBtn = createButton("Цель: Выбранный игрок", yOff+30, nil, function()
+    targetAll = not targetAll
+    allBtn.Text = targetAll and "Цель: Все игроки" or "Цель: Выбранный игрок"
+end)
+
+createButton("Kick", yOff+70, Color3.fromRGB(200, 100, 0), function()
+    for _, plr in ipairs(getTargets(targetAll, inputPlayer.Text)) do
+        plr:Kick("Kicked by admin")
+    end
+end)
+createButton("Kill", yOff+100, Color3.fromRGB(200, 0, 0), function()
+    for _, plr in ipairs(getTargets(targetAll, inputPlayer.Text)) do
+        if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+            plr.Character.Humanoid.Health = 0
+        end
+    end
+end)
+createButton("Freeze", yOff+130, Color3.fromRGB(0, 100, 150), function()
+    for _, plr in ipairs(getTargets(targetAll, inputPlayer.Text)) do
+        if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+            plr.Character.Humanoid.WalkSpeed = 0
+        end
+    end
+end)
+createButton("Unfreeze", yOff+160, Color3.fromRGB(0, 100, 150), function()
+    for _, plr in ipairs(getTargets(targetAll, inputPlayer.Text)) do
+        if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+            plr.Character.Humanoid.WalkSpeed = 16
+        end
+    end
+end)
+createButton("Teleport to Player", yOff+190, Color3.fromRGB(150, 0, 150), function()
+    local target = Players:FindFirstChild(inputPlayer.Text)
+    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and player.Character then
+        player.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+    end
+end)
+
+-- Сервер
+createButton("Restart Server", yOff+240, Color3.fromRGB(150, 50, 0), function()
+    game:GetService("TeleportService"):Teleport(game.PlaceId, player)
+end)
+createButton("Set Day", yOff+270, Color3.fromRGB(200, 200, 0), function()
+    game:GetService("Lighting").ClockTime = 14
+end)
+createButton("Set Night", yOff+300, Color3.fromRGB(50, 50, 150), function()
+    game:GetService("Lighting").ClockTime = 0
+end)
+
+-- Игрок (только для вас)
+local speedBox = createInput(yOff+350, "Скорость бега")
+createButton("Set Speed", yOff+380, Color3.fromRGB(0, 150, 0), function()
+    local newSpeed = tonumber(speedBox.Text)
+    if newSpeed and player.Character and player.Character:FindFirstChild("Humanoid") then
+        player.Character.Humanoid.WalkSpeed = newSpeed
+    end
+end)
+createButton("Fly ON/OFF", yOff+410, Color3.fromRGB(0, 100, 200), function()
+    fly = not fly
+    local char = player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local root = char.HumanoidRootPart
+        if fly then
+            local bv = Instance.new("BodyVelocity")
+            bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+            bv.Parent = root
+            local bg = Instance.new("BodyGyro")
+            bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+            bg.Parent = root
+            local move = Vector3.new()
+            local function update(key, state, vec)
+                if state then move = move + vec else move = move - vec end
+            end
+            local iB = game:GetService("UserInputService").InputBegan:Connect(function(i)
+                local k = i.KeyCode.Name
+                if k == "W" then update("W", true, Vector3.new(0,0,-1))
+                elseif k == "S" then update("S", true, Vector3.new(0,0,1))
+                elseif k == "A" then update("A", true, Vector3.new(-1,0,0))
+                elseif k == "D" then update("D", true, Vector3.new(1,0,0))
+                elseif k == "Space" then update("Space", true, Vector3.new(0,1,0))
+                elseif k == "LeftShift" then update("Shift", true, Vector3.new(0,-1,0)) end
+            end)
+            local iE = game:GetService("UserInputService").InputEnded:Connect(function(i)
+                local k = i.KeyCode.Name
+                if k == "W" then update("W", false, Vector3.new(0,0,-1))
+                elseif k == "S" then update("S", false, Vector3.new(0,0,1))
+                elseif k == "A" then update("A", false, Vector3.new(-1,0,0))
+                elseif k == "D" then update("D", false, Vector3.new(1,0,0))
+                elseif k == "Space" then update("Space", false, Vector3.new(0,1,0))
+                elseif k == "LeftShift" then update("Shift", false, Vector3.new(0,-1,0)) end
+            end)
+            local rs = RunService.RenderStepped:Connect(function()
+                if not fly then
+                    bv:Destroy(); bg:Destroy(); iB:Disconnect(); iE:Disconnect(); rs:Disconnect()
+                    return
+                end
+                bv.Velocity = move * 50
+                if move.Magnitude > 0 then bg.CFrame = CFrame.new(root.Position, root.Position + move) end
+            end)
+        end
+    end
+end)
+createButton("NoClip ON/OFF", yOff+440, Color3.fromRGB(0, 150, 100), function()
+    noclip = not noclip
+    local char = player.Character
+    if char then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = not noclip
+            end
+        end
+    end
+end)
+
+scroll.CanvasSize = UDim2.new(0, 0, 0, yOff+480)
